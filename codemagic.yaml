@@ -1,23 +1,17 @@
-workflows:
-  default-workflow: # workflow ID
-    # by default the workflow name is `Default Workflow` but you can customize it
+ workflows:
+  default-workflow:
     name: Default Workflow 
-    # Codemagic uses VM(s) on Mac Mini(s)
     instance_type: mac_mini
-    # The build duration can range from 30 mins to 60 mins and max of 120 mins
     max_build_duration: 60
     environment:
-      groups:
-        - environment_variables
-      #  - environment_credentials
       flutter: stable
       xcode: latest
-      cocoapods: default # cocoapods is the dependency manager for Swift and Objective-C
+      cocoapods: default
     cache:
       cache_paths:
-        - $HOME/Library/Caches/CocoaPods # CocoaPods cache
-        - $FLUTTER_ROOT/.pub-cache # Dart cache
-        - $HOME/.gradle/caches  # Gradle cache. Note: do not cache $HOME/.gradle
+        - $HOME/Library/Caches/CocoaPods
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
     triggering:
       events:
         - push
@@ -39,66 +33,11 @@ workflows:
         - pattern: included-tag
           include: true
       cancel_previous_builds: false  # Set to `true` to automatically cancel outdated webhook builds
-    scripts:
-      - name: Set up key.properties
-        script: |
-          echo $CM_KEYSTORE | base64 --decode > $CM_KEYSTORE_PATH 
-          cat >> "$CM_BUILD_DIR/project_directory/android/key.properties" <<EOF
-          storePassword=$CM_KEYSTORE_PASSWORD
-          keyPassword=$CM_KEY_PASSWORD
-          keyAlias=$CM_KEY_ALIAS
-          storeFile=$CM_KEYSTORE_PATH
-          EOF    
-      - name: Set up debug.keystore
-        script: |
-          rm -f ~/.android/debug.keystore
-          keytool -genkeypair \
-            -alias androiddebugkey \
-            -keypass android \
-            -keystore ~/.android/debug.keystore \
-            -storepass android \
-            -dname 'CN=Android Debug,O=Android,C=US' \
-            -keyalg 'RSA' \
-            -keysize 2048 \
-            -validity 10000
-      - name: Set up local.properties
-        script: |
-          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
-      - name: Get Flutter packages
-        script: |
-          cd . && flutter packages pub get
-      - name: Flutter analyze
-        script: |
-          cd . && flutter analyze
-      - name: Flutter unit tests
-        script: |
-          cd . && flutter test
-        ignore_failure: true
-      - name: Build APK with Flutter  
-        script: |
-          cd . && flutter build apk --debug
-      - name: Create debug and test APK  
-        script: |
-          set -ex
-          cd android
-          ./gradlew app:assembleAndroidTest
-          ./gradlew app:assembleDebug -Ptarget="$CM_BUILD_DIR/integration_test/app_test.dart" 
-      - name: Build web
-        script: |
-          flutter config --enable-web
-          flutter build web --release
-          cd build/web
-          7z a -r ../web.zip ./*
     artifacts:
-      - build/**/outputs/bundle/**/*.aab
-      - build/**/outputs/apk/**/*.apk
-      - build/**/outputs/**/mapping.txt
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
       - flutter_drive.log
     publishing:
-    # by default you will be notified for both success/failure build(s)
       email:
         recipients:
           - arjungoel1995@gmail.com
-        notify:
-          success: true     # To not receive a notification when a build succeeds
-          failure: false    # To not receive a notification when a build fails
